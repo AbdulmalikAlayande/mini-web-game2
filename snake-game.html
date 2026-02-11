@@ -18,7 +18,6 @@
 			}
 
 			.game-wrapper {
-				position: relative;
 				text-align: center;
 			}
 
@@ -26,18 +25,15 @@
 				background: #111827;
 				border-radius: 12px;
 				box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-				transition: box-shadow 0.1s ease;
 			}
 
 			.scoreboard {
-				margin-bottom: 10px;
-				font-size: 18px;
 				display: flex;
 				justify-content: space-between;
+				margin-bottom: 10px;
 			}
 
-			.start-screen,
-			.game-over {
+			.overlay {
 				position: absolute;
 				inset: 0;
 				background: rgba(0, 0, 0, 0.9);
@@ -45,23 +41,52 @@
 				flex-direction: column;
 				justify-content: center;
 				align-items: center;
-				font-size: 22px;
-				z-index: 10;
-			}
-
-			.game-over {
-				display: none;
+				gap: 15px;
 			}
 
 			button {
-				padding: 10px 20px;
-				margin-top: 20px;
+				padding: 12px 20px;
 				border: none;
-				border-radius: 6px;
+				border-radius: 8px;
 				background: #22c55e;
-				color: black;
 				font-weight: bold;
+				font-size: 16px;
 				cursor: pointer;
+			}
+
+			.controls {
+				margin-top: 15px;
+				display: grid;
+				grid-template-areas:
+					". up ."
+					"left down right";
+				gap: 10px;
+				justify-content: center;
+			}
+
+			.controls button {
+				width: 60px;
+				height: 60px;
+				font-size: 20px;
+			}
+
+			.up {
+				grid-area: up;
+			}
+			.down {
+				grid-area: down;
+			}
+			.left {
+				grid-area: left;
+			}
+			.right {
+				grid-area: right;
+			}
+
+			@media (min-width: 768px) {
+				.controls {
+					display: none;
+				}
 			}
 		</style>
 	</head>
@@ -74,68 +99,63 @@
 
 			<canvas id="gameCanvas" width="400" height="400"></canvas>
 
-			<div class="start-screen" id="startScreen">
-				<h2>🐍 SNAKE GAME</h2>
-				<p>Press 1 for Easy</p>
-				<p>Press 2 for Hard</p>
-				<p style="margin-top: 15px">Press Space to Pause</p>
+			<div class="overlay" id="startScreen">
+				<h2>🐍 Snake Game</h2>
+				<button onclick="selectDifficulty('easy')">Easy</button>
+				<button onclick="selectDifficulty('hard')">Hard</button>
 			</div>
 
-			<div class="game-over" id="gameOverScreen">
+			<div class="overlay" id="gameOverScreen" style="display: none">
 				<h2>Game Over</h2>
-				<p>Final Score: <span id="finalScore"></span></p>
+				<div>Final Score: <span id="finalScore"></span></div>
 				<button onclick="restartGame()">Restart</button>
+			</div>
+
+			<div class="controls">
+				<button class="up">⬆</button>
+				<button class="left">⬅</button>
+				<button class="down">⬇</button>
+				<button class="right">➡</button>
 			</div>
 		</div>
 
-		<!-- Sounds -->
-		<audio id="eatSound" preload="auto">
+		<audio id="eatSound">
 			<source
 				src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"
-				type="audio/ogg"
 			/>
 		</audio>
 
-		<audio id="gameOverSound" preload="auto">
+		<audio id="gameOverSound">
 			<source
 				src="https://actions.google.com/sounds/v1/cartoon/concussive_drum_hit.ogg"
-				type="audio/ogg"
 			/>
 		</audio>
 
 		<script>
 			const canvas = document.getElementById("gameCanvas");
 			const ctx = canvas.getContext("2d");
-
 			const eatSound = document.getElementById("eatSound");
 			const gameOverSound = document.getElementById("gameOverSound");
 
 			const gridSize = 20;
 			const tileCount = canvas.width / gridSize;
 
-			let snake;
-			let egg;
-			let dx;
-			let dy;
-			let score;
-			let gameSpeed;
-			let baseSpeed = 140;
+			let snake, egg, dx, dy, score;
+			let gameSpeed,
+				baseSpeed = 140;
 			let difficulty = "easy";
-
-			let hasStarted = false;
 			let gameRunning = false;
-			let isPaused = false;
 			let gameTimeout;
 
-			let inputQueue = [];
-
-			function startGame() {
-				initGame();
-				gameRunning = true;
-				gameLoop();
+			function selectDifficulty(level) {
+				difficulty = level;
+				baseSpeed = level === "easy" ? 140 : 80;
+				document.getElementById("mode").textContent = level;
+				document.getElementById("startScreen").style.display = "none";
+				startGame();
 			}
 
-			function initGame() {
+			function startGame() {
 				snake = [
 					{ x: 10, y: 10 },
 					{ x: 9, y: 10 },
@@ -145,11 +165,10 @@
 				dy = 0;
 				score = 0;
 				gameSpeed = baseSpeed;
-				inputQueue = [];
 				generateEgg();
 				document.getElementById("score").textContent = score;
-				document.getElementById("mode").textContent =
-					difficulty === "easy" ? "Easy" : "Hard";
+				gameRunning = true;
+				gameLoop();
 			}
 
 			function generateEgg() {
@@ -163,80 +182,45 @@
 				ctx.fillStyle = "#111827";
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-				// Draw egg
 				ctx.beginPath();
 				ctx.arc(
-					egg.x * gridSize + gridSize / 2,
-					egg.y * gridSize + gridSize / 2,
-					gridSize / 2 - 4,
+					egg.x * gridSize + 10,
+					egg.y * gridSize + 10,
+					8,
 					0,
 					Math.PI * 2,
 				);
 				ctx.fillStyle = "#facc15";
 				ctx.fill();
 
-				// Draw snake
-				snake.forEach((segment, index) => {
-					const x = segment.x * gridSize + gridSize / 2;
-					const y = segment.y * gridSize + gridSize / 2;
+				snake.forEach((seg, index) => {
+					const x = seg.x * gridSize + 10;
+					const y = seg.y * gridSize + 10;
 
 					ctx.beginPath();
-					ctx.arc(x, y, gridSize / 2 - 2, 0, Math.PI * 2);
-
-					if (index === 0) {
-						ctx.fillStyle = "#4ade80";
-					} else {
-						const gradient = ctx.createRadialGradient(x, y, 2, x, y, 12);
-						gradient.addColorStop(0, "#4ade80");
-						gradient.addColorStop(1, "#15803d");
-						ctx.fillStyle = gradient;
-					}
-
+					ctx.arc(x, y, 8, 0, Math.PI * 2);
+					ctx.fillStyle = index === 0 ? "#4ade80" : "#22c55e";
 					ctx.fill();
 
-					// Eyes for head
 					if (index === 0) {
 						ctx.fillStyle = "white";
-
-						const eyeOffsetX = dx === 0 ? 5 : dx * 5;
-						const eyeOffsetY = dy === 0 ? 5 : dy * 5;
-
 						ctx.beginPath();
-						ctx.arc(x - 4 + eyeOffsetX, y - 4 + eyeOffsetY, 3, 0, Math.PI * 2);
-						ctx.arc(x + 4 + eyeOffsetX, y - 4 + eyeOffsetY, 3, 0, Math.PI * 2);
+						ctx.arc(x - 3, y - 3, 2, 0, Math.PI * 2);
+						ctx.arc(x + 3, y - 3, 2, 0, Math.PI * 2);
 						ctx.fill();
 					}
 				});
-
-				if (isPaused) {
-					ctx.fillStyle = "rgba(0,0,0,0.5)";
-					ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-					ctx.fillStyle = "white";
-					ctx.font = "30px Arial";
-					ctx.textAlign = "center";
-					ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 2);
-				}
 			}
 
 			function update() {
-				if (inputQueue.length > 0) {
-					const nextMove = inputQueue.shift();
-					dx = nextMove.dx;
-					dy = nextMove.dy;
-				}
-
-				const head = {
-					x: snake[0].x + dx,
-					y: snake[0].y + dy,
-				};
+				const head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
 				if (
 					head.x < 0 ||
 					head.x >= tileCount ||
 					head.y < 0 ||
 					head.y >= tileCount ||
-					snake.some((seg) => seg.x === head.x && seg.y === head.y)
+					snake.some((s) => s.x === head.x && s.y === head.y)
 				) {
 					gameOver();
 					return;
@@ -246,17 +230,10 @@
 
 				if (head.x === egg.x && head.y === egg.y) {
 					score++;
-					document.getElementById("score").textContent = score;
-
 					eatSound.currentTime = 0;
 					eatSound.play();
-
-					canvas.style.boxShadow = "0 0 30px #22c55e";
-					setTimeout(() => {
-						canvas.style.boxShadow = "0 10px 40px rgba(0,0,0,0.5)";
-					}, 100);
-
 					generateEgg();
+					document.getElementById("score").textContent = score;
 				} else {
 					snake.pop();
 				}
@@ -264,80 +241,68 @@
 
 			function gameLoop() {
 				if (!gameRunning) return;
-				if (!isPaused) {
-					update();
-					draw();
-				}
+				update();
+				draw();
 				gameTimeout = setTimeout(gameLoop, gameSpeed);
 			}
 
 			function gameOver() {
-				gameRunning = false;
 				clearTimeout(gameTimeout);
-
-				gameOverSound.currentTime = 0;
+				gameRunning = false;
 				gameOverSound.play();
-
 				document.getElementById("finalScore").textContent = score;
 				document.getElementById("gameOverScreen").style.display = "flex";
 			}
 
 			function restartGame() {
 				document.getElementById("gameOverScreen").style.display = "none";
-				hasStarted = false;
 				document.getElementById("startScreen").style.display = "flex";
 			}
 
-			document.addEventListener("keydown", function (e) {
-				if (!hasStarted && (e.key === "1" || e.key === "2")) {
-					hasStarted = true;
-
-					if (e.key === "1") {
-						difficulty = "easy";
-						baseSpeed = 140;
-					} else {
-						difficulty = "hard";
-						baseSpeed = 80;
-					}
-
-					document.getElementById("startScreen").style.display = "none";
-					startGame();
-					return;
-				}
-
+			document.addEventListener("keydown", (e) => {
 				if (!gameRunning) return;
-
-				if (e.code === "Space") {
-					isPaused = !isPaused;
-					return;
+				if (e.key === "ArrowUp" && dy === 0) {
+					dx = 0;
+					dy = -1;
 				}
-
-				if (isPaused) return;
-
-				let newDx = dx;
-				let newDy = dy;
-
-				if ((e.key === "ArrowUp" || e.key === "w") && dy === 0) {
-					newDx = 0;
-					newDy = -1;
+				if (e.key === "ArrowDown" && dy === 0) {
+					dx = 0;
+					dy = 1;
 				}
-				if ((e.key === "ArrowDown" || e.key === "s") && dy === 0) {
-					newDx = 0;
-					newDy = 1;
+				if (e.key === "ArrowLeft" && dx === 0) {
+					dx = -1;
+					dy = 0;
 				}
-				if ((e.key === "ArrowLeft" || e.key === "a") && dx === 0) {
-					newDx = -1;
-					newDy = 0;
-				}
-				if ((e.key === "ArrowRight" || e.key === "d") && dx === 0) {
-					newDx = 1;
-					newDy = 0;
-				}
-
-				if (newDx !== dx || newDy !== dy) {
-					inputQueue.push({ dx: newDx, dy: newDy });
+				if (e.key === "ArrowRight" && dx === 0) {
+					dx = 1;
+					dy = 0;
 				}
 			});
+
+			document.querySelector(".up").onclick = () => {
+				if (dy === 0) {
+					dx = 0;
+					dy = -1;
+				}
+			};
+			document.querySelector(".down").onclick = () => {
+				if (dy === 0) {
+					dx = 0;
+					dy = 1;
+				}
+			};
+			document.querySelector(".left").onclick = () => {
+				if (dx === 0) {
+					dx = -1;
+					dy = 0;
+				}
+			};
+			document.querySelector(".right").onclick = () => {
+				if (dx === 0) {
+					dx = 1;
+					dy = 0;
+				}
+			};
 		</script>
 	</body>
 </html>
