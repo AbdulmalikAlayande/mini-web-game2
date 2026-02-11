@@ -67,10 +67,12 @@
 				justify-content: center;
 				align-items: center;
 				z-index: 1000;
+				text-align: center;
 			}
 
-			.start-screen h2 {
-				font-size: 2em;
+			.start-screen p {
+				margin-top: 10px;
+				font-size: 1.2em;
 			}
 
 			.game-over {
@@ -110,13 +112,17 @@
 		<div class="score-board">
 			<div class="score-item">Score: <span id="score">0</span></div>
 			<div class="score-item">High Score: <span id="highScore">0</span></div>
+			<div class="score-item">Mode: <span id="mode">-</span></div>
 		</div>
 
 		<canvas id="gameCanvas" width="600" height="600"></canvas>
+
 		<div class="controls">Use Arrow Keys / WASD | Space = Pause</div>
 
 		<div class="start-screen" id="startScreen">
-			<h2>Press Enter to Start</h2>
+			<h2>🐍 SNAKE GAME</h2>
+			<p>Press 1 for Easy</p>
+			<p>Press 2 for Hard</p>
 		</div>
 
 		<div class="game-over" id="gameOver">
@@ -140,10 +146,13 @@
 			let highScore = localStorage.getItem("snakeHighScore") || 0;
 			let gameRunning = false;
 			let gameInterval;
-			let gameSpeed = 100;
+			let gameSpeed;
 			let isPaused = false;
 			let inputQueue = [];
 			let hasStarted = false;
+
+			let difficulty = "easy";
+			let baseSpeed = 120;
 
 			document.getElementById("highScore").textContent = highScore;
 
@@ -152,7 +161,7 @@
 				dx = 1;
 				dy = 0;
 				score = 0;
-				gameSpeed = 100;
+				gameSpeed = baseSpeed;
 				isPaused = false;
 				inputQueue = [];
 				generateEgg();
@@ -171,8 +180,21 @@
 			}
 
 			document.addEventListener("keydown", (e) => {
-				if (!hasStarted && e.key === "Enter") {
+				// Difficulty selection
+				if (!hasStarted && (e.key === "1" || e.key === "2")) {
 					hasStarted = true;
+
+					if (e.key === "1") {
+						difficulty = "easy";
+						baseSpeed = 140;
+					} else {
+						difficulty = "hard";
+						baseSpeed = 80;
+					}
+
+					document.getElementById("mode").textContent =
+						difficulty === "easy" ? "Easy" : "Hard";
+
 					document.getElementById("startScreen").style.display = "none";
 					startGame();
 					return;
@@ -237,12 +259,13 @@
 				if (head.x === egg.x && head.y === egg.y) {
 					score++;
 					document.getElementById("score").textContent = score;
+
 					canvas.style.boxShadow = "0 0 25px #22c55e";
 					setTimeout(() => {
 						canvas.style.boxShadow = "0 10px 40px rgba(0,0,0,0.3)";
 					}, 100);
 
-					if (score % 5 === 0 && gameSpeed > 50) {
+					if (score % 5 === 0 && gameSpeed > 40) {
 						gameSpeed -= 5;
 					}
 
@@ -269,7 +292,6 @@
 					ctx.stroke();
 				}
 
-				// draw egg
 				ctx.fillStyle = "#facc15";
 				ctx.beginPath();
 				ctx.arc(
@@ -281,7 +303,6 @@
 				);
 				ctx.fill();
 
-				// draw snake
 				snake.forEach((seg, index) => {
 					ctx.fillStyle = index === 0 ? "#4ade80" : "#22c55e";
 					ctx.fillRect(
@@ -304,10 +325,8 @@
 
 			function gameLoop() {
 				if (!gameRunning) return;
-
 				if (!isPaused) moveSnake();
 				draw();
-
 				gameInterval = setTimeout(gameLoop, gameSpeed);
 			}
 
@@ -337,7 +356,8 @@
 				setTimeout(() => {
 					canvas.style.opacity = 1;
 				}, 100);
-				startGame();
+				hasStarted = false;
+				document.getElementById("startScreen").style.display = "flex";
 			}
 		</script>
 	</body>
